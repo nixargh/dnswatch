@@ -1,7 +1,7 @@
 nsupdate:
+  domain: domain_name
   update_key:
     domain: key_domain_name.
     key: "sercret_key"
     algorithm: key_algorithm
   ttl: 300
-
