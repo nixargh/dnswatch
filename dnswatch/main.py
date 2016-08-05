@@ -7,6 +7,10 @@ import logging
 import yaml
 import dns.resolver
 import dns.tsigkeyring
+import socket
+import fcntl
+import struct
+import re
 
 ##############################################################################
 logger = None
@@ -16,12 +20,14 @@ class DNSWatch:
         self.logger = logger
         self.config = config
         self.keyring = self._create_keyring(config["nsupdate"]["update_key"])
+        self.private_ip = self._get_private_ip()
+        self.public_ip = self._get_public_ip()
 
     def initial_config(self):
         self.logger.debug("Doing initial configuration.")
-        self.masters = self._get_masters(self.config["nsupdate"]["update_key"]["domain"])
+        self.masters = self._get_masters(self.config["nsupdate"]["zone"])
         self.slaves = self._get_slaves(
-            self.masters["private"], self.config["nsupdate"]["domain"])
+            self.masters, self.config["nsupdate"]["zone"])
 
         self._update_zone(self.masters["private"][0], self.private_ip)
         self._update_zone(self.masters["public"][0], self.public_ip)
@@ -34,33 +40,101 @@ class DNSWatch:
     def cleanup(self):
         pass
 
+    def _get_private_ip(self):
+        self.logger.debug("Detecting private IP.")
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+#        # First method        
+#        s.connect(("8.8.8.8", 53))
+#        ip = s.getsockname()[0]
+
+        # Second method        
+        ip = socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', "eth0"))[20:24])
+
+        s.close()
+        self.logger.debug("My private IP: {}.".format(ip))
+        return ip
+
+    def _get_public_ip(self):
+        self.logger.debug("Detecting public IP.")
+
+        name = socket.gethostbyaddr(self.private_ip)[0]
+        #ip = self._query(name, "A", ["8.8.8.8", "8.8.4.4"])[0]
+        ip = self._query(name, "A", ["127.0.1.1"])[0]
+
+        self.logger.debug("My public IP: {}.".format(ip))
+        return ip
+
     def _create_keyring(self, update_key):
-        domain = update_key["domain"]
+        name = update_key["name"]
         key = update_key["key"]
         self.logger.debug(
             "Creating keyring for domain '{}' with key '{}'.".format(
-                domain, key))
-        return dns.tsigkeyring.from_text({domain: key}) 
+                name, key))
+        return dns.tsigkeyring.from_text({name: key}) 
 
-    def _get_masters(self, domain):
-        self.logger.debug("Getting DNS masters.")
+    def _get_masters(self, zone):
+        self.logger.debug("Getting DNS masters for zone {}.".format(zone))
 
         masters = dict()
         for mtype in ["private", "public"]:
-            answer = dns.resolver.query(
-                "dns-master-{}.{}".format(mtype, domain), "TXT")
-            masters[mtype] = answer[0].strings
+            try:
+                record = "dns-master-{}.{}".format(mtype, zone)
+                self.logger.debug("Looking for TXT record {}.".format(record))
+                answer = self._query(record, "TXT")
+            except dns.resolver.NXDOMAIN:
+                upper_zone = zone.split(".", 1)[1]
+                record = "dns-master-{}.{}".format(mtype, upper_zone)
+                self.logger.debug(
+                    "Failed. Checking upper zone {}.".format(upper_zone))
+                answer = self._query(record, "TXT")
 
-        self.logger.debug("Masters: {}".format(masters))
+            self.logger.debug("Got {} masters.".format(mtype))
+            masters[mtype] = answer
+
+        self.logger.debug("Masters: {}.".format(masters))
         return masters
 
-    def _get_slaves(self, masters, domain):
+    def _get_slaves(self, masters, zone):
+        self.logger.debug("Getting DNS slaves for zone {}.".format(zone))
+
+        slaves = dict()
+        for stype in masters.keys():
+            record = "dns-slave.{}".format(zone)
+            self.logger.debug("Looking for TXT record {} at {}.".format(
+                record, masters[stype]))
+            answer = self._query(
+                "dns-slave.{}".format(zone), "TXT", masters[stype])
+            slaves[stype] = answer
+
+        self.logger.debug("Slaves: {}.".format(slaves))
+        return slaves
+
+    def _query(self, name, rtype="A", nameservers=None):
+        result = list()
         resolver = dns.resolver.Resolver()
-        resolver.nameservers = ["146.148.112.135", "104.155.34.12"]
-        answer = resolver.query("dns-slave.{}".format(domain), "TXT")
-        for st in answer[0].strings:
-            print st
-        #return self._get_masters(domain)
+        if nameservers:
+            resolver.nameservers = nameservers
+
+        answers = list()
+        try:
+            answers = resolver.query(name, rtype)
+        except dns.exception.Timeout:
+            self.logger.error(
+                "Timeout reached while getting {} record {} from {}.".format(
+                    rtype, name, nameservers))
+
+        for answer in answers:
+            if rtype == "TXT":
+                for line in answer.strings:
+                    line = line.replace('"', "")
+                    result.extend(line.split(","))
+            else:
+                result.append(answer.address)
+        return result
 
     def _update_zone(self, server, ip):
         pass
