@@ -11,6 +11,9 @@ class GCE:
                 "headers": { "Metadata-Flavor": "Google" }
             }
 
+    def get_private_ip(self):
+        return self._get_data("instance/network-interfaces/0/ip")
+
     def get_public_ip(self):
         return self._get_data("instance/network-interfaces/0/access-configs/0/external-ip")
 

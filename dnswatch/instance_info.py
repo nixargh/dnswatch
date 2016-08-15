@@ -9,6 +9,10 @@ class InstanceInfo:
     def __init__(self, provider="other"):
         self.logger = Log.get_logger(self.__class__.__name__)
         self.provider = provider
+        if provider == "gce":
+            self.cloud = GCE()
+        elif provider == "aws":
+            self.cloud = AWS()
 
     def get_private_ip(self):
         """
@@ -16,12 +20,17 @@ class InstanceInfo:
         external connections.
         """
         self.logger.debug("Detecting private IP.")
+        ip = None
+
         if self.provider == "aws":
-            pass
+            self.logger.error("AWS isn't implemeted yet.")
         elif self.provider == "gce":
-            pass
+            ip = self._get_private_ip_cloud()
         else:
-            return self._get_private_ip_other()
+            ip = self._get_private_ip_other()
+
+        self.logger.debug("My private IP: {}.".format(ip))
+        return ip
 
     def _get_private_ip_other(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -44,19 +53,25 @@ class InstanceInfo:
                 s.fileno(),
                 0x8915,  # SIOCGIFADDR
                 struct.pack('256s', interface))[20:24])
-
         s.close()
-        self.logger.debug("My private IP: {}.".format(ip))
         return ip
+
+    def _get_private_ip_cloud(self):
+        return self.cloud.get_private_ip()
 
     def get_public_ip(self):
         self.logger.debug("Detecting public IP.")
+        ip = None
+
         if self.provider == "aws":
-            pass
+            self.logger.error("AWS isn't implemeted yet.")
         elif self.provider == "gce":
-            self._get_public_ip_gce()
+            ip = self._get_public_ip_cloud()
         else:
-            return self._get_public_ip_other()
+            ip = self._get_public_ip_other()
+
+        self.logger.debug("My public IP: {}.".format(ip))
+        return ip
 
     def _get_public_ip_other(self):
         ip = None
@@ -67,13 +82,10 @@ class InstanceInfo:
             #ip = self._query(name, "A", ["127.0.1.1"])[0]
         except:
             self.logger.error("Failed to find public IP.")
-
-        self.logger.debug("My public IP: {}.".format(ip))
         return ip
 
-    def _get_public_ip_gce(self):
-        gce = GCE()
-        return gce.get_public_ip()
+    def _get_public_ip_cloud(self):
+        return self.cloud.get_public_ip()
 
     def _get_interfaces(self):
         self.logger.debug("Getting network interfaces.")
