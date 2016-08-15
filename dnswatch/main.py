@@ -3,25 +3,23 @@
 # dnswatch - tool to automate DNS setup
 ##############################################################################
 import sys
-import logging
-import yaml
 import dns.resolver
 import dns.tsigkeyring
-import socket
-import fcntl
-import struct
 import re
 
-##############################################################################
-logger = None
+from instance_info import InstanceInfo
+from log import Log
+from config import Config
 ##############################################################################
 class DNSWatch:
     def __init__(self, logger, config):
         self.logger = logger
         self.config = config
         self.keyring = self._create_keyring(config["nsupdate"]["update_key"])
-        self.private_ip = self._get_private_ip()
-        self.public_ip = self._get_public_ip()
+
+        ii = InstanceInfo("gce")
+        self.private_ip = ii.get_private_ip()
+        self.public_ip = ii.get_public_ip()
 
     def initial_config(self):
         self.logger.debug("Doing initial configuration.")
@@ -39,63 +37,6 @@ class DNSWatch:
 
     def cleanup(self):
         pass
-
-    def _get_private_ip(self):
-        """
-        Return one IP address belongs to network interfaces used for
-        external connections.
-        """
-        self.logger.debug("Detecting private IP.")
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        ip = None
-
-        interfaces = self._get_interfaces()
-
-        if len(interfaces) > 1:
-            self.logger.debug(
-                "More than one interface found, using external "\
-                    "connect to find proper IP.")
-            # First method        
-            s.connect(("8.8.8.8", 53))
-            ip = s.getsockname()[0]
-        else:
-            interface = interfaces[0]
-
-            # Second method        
-            ip = socket.inet_ntoa(fcntl.ioctl(
-                s.fileno(),
-                0x8915,  # SIOCGIFADDR
-                struct.pack('256s', interface))[20:24])
-
-        s.close()
-        self.logger.debug("My private IP: {}.".format(ip))
-        return ip
-
-    def _get_public_ip(self):
-        self.logger.debug("Detecting public IP.")
-        ip = None
-
-        try:
-            name = socket.gethostbyaddr(self.private_ip)[0]
-            ip = self._query(name, "A", ["8.8.8.8", "8.8.4.4"])[0]
-            #ip = self._query(name, "A", ["127.0.1.1"])[0]
-        except:
-            self.logger.error("Failed to find public IP.")
-
-        self.logger.debug("My public IP: {}.".format(ip))
-        return ip
-
-    def _get_interfaces(self):
-        self.logger.debug("Getting network interfaces.")
-        interfaces = list()
-        with open("/proc/net/dev", "r") as dev_file:
-            devices = dev_file.readlines()
-            for dev in devices[2:]:
-                dev_name = dev.split(":")[0].strip()
-                if dev_name != "lo":
-                    interfaces.append(dev_name)
-        self.logger.debug("Interfaces: {}.".format(interfaces))
-        return interfaces
 
     def _create_keyring(self, update_key):
         name = update_key["name"]
@@ -172,30 +113,12 @@ class DNSWatch:
         pass
 
 ##############################################################################
-def configure_logger(name):
-    global logger
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter(
-        '%(asctime)s %(process)d %(name)-16s %(levelname)-8s %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
-
-def parse_config(config_file):
-    logger.debug("Loading configuration from {}".format(config_file))
-    with open(config_file, "r") as f:
-        config = yaml.load(f)
-
-    logger.debug("Configuration loaded.")    
-    return config
-
 def main():
-    logger = configure_logger("DNSWatch")
+    logger = Log.get_logger("DNSWatch")
     logger.debug("Starting.")
 
-    config = parse_config(sys.argv[1])
+    c = Config()
+    config = c.read(sys.argv[1])
 
     dw = DNSWatch(logger, config)
     dw.initial_config()
