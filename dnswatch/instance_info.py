@@ -4,6 +4,7 @@ import struct
 
 from log import Log
 from gce import GCE
+from aws import AWS
 
 class InstanceInfo:
     def __init__(self, provider="other"):
@@ -13,6 +14,9 @@ class InstanceInfo:
             self.cloud = GCE()
         elif provider == "aws":
             self.cloud = AWS()
+
+    def get_fqdn(self):
+        return socket.getfqdn()
 
     def get_private_ip(self):
         """
@@ -24,12 +28,28 @@ class InstanceInfo:
 
         if self.provider == "aws":
             self.logger.error("AWS isn't implemeted yet.")
+            raise Exception("AWS isn't implemeted yet.")
         elif self.provider == "gce":
             ip = self._get_private_ip_cloud()
         else:
             ip = self._get_private_ip_other()
 
         self.logger.debug("My private IP: {}.".format(ip))
+        return ip
+
+    def get_public_ip(self):
+        self.logger.debug("Detecting public IP.")
+        ip = None
+
+        if self.provider == "aws":
+            self.logger.error("AWS isn't implemeted yet.")
+            raise Exception("AWS isn't implemeted yet.")
+        elif self.provider == "gce":
+            ip = self._get_public_ip_cloud()
+        else:
+            ip = self._get_public_ip_other()
+
+        self.logger.debug("My public IP: {}.".format(ip))
         return ip
 
     def _get_private_ip_other(self):
@@ -58,20 +78,6 @@ class InstanceInfo:
 
     def _get_private_ip_cloud(self):
         return self.cloud.get_private_ip()
-
-    def get_public_ip(self):
-        self.logger.debug("Detecting public IP.")
-        ip = None
-
-        if self.provider == "aws":
-            self.logger.error("AWS isn't implemeted yet.")
-        elif self.provider == "gce":
-            ip = self._get_public_ip_cloud()
-        else:
-            ip = self._get_public_ip_other()
-
-        self.logger.debug("My public IP: {}.".format(ip))
-        return ip
 
     def _get_public_ip_other(self):
         ip = None
