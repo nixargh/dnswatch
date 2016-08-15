@@ -74,13 +74,20 @@ class DNSOps:
             raise Exception("Key algorithm for DNS update not specified")
         self.logger.debug("Updating {} host at {} with IP {}.".format(
             host, dnsserver, ip))
+
+        origin = dns.name.from_text(self.config["zone"])
+
         update = dns.update.Update(
-            self.config["zone"],
+            origin,
             keyring=self.keyring, 
             keyalgorithm=self.key_algorithm)  
+
+        host = dns.name.from_text(host) - origin
+
+        ip = ip.encode("utf-8")
         update.replace(host, self.config["ttl"], "A", ip)
-        response = self.query.tcp(update, dnsserver)
-        print dns.rcode.to_text(response.rcode())
+        dns.query.tcp(update, dnsserver, timeout=self.config["timeout"])
+        self.logger.debug("Host {}.{} updated.".format(host, origin))
 
     def _query(self, name, rtype="A", nameservers=None):
         result = list()
