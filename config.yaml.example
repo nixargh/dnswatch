@@ -5,3 +5,4 @@ nsupdate:
     key: "sercret_key"
     algorithm: key_algorithm
   ttl: 300
+  timeout: 10

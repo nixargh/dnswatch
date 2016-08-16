@@ -32,8 +32,8 @@ class DNSWatch:
         self.masters = self.dnso.get_masters()
         self.slaves = self.dnso.get_slaves(self.masters)
 
-        self.dnso.update_zone(self.masters["private"][0], self.fqdn, self.private_ip)
-        self.dnso.update_zone(self.masters["public"][0], self.fqdn, self.public_ip)
+        self.dnso.update_host(self.masters["private"][0], self.fqdn, self.private_ip)
+        self.dnso.update_host(self.masters["public"][0], self.fqdn, self.public_ip)
 
         self._setup_resolver(self.slaves["private"])
 
