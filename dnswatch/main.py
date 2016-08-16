@@ -10,7 +10,7 @@ from config import Config
 from gce import GCE
 from aws import AWS
 from dnsops import DNSOps
-
+from dhclient import DHClient
 ##############################################################################
 class DNSWatch:
     def __init__(self, logger, config):
@@ -32,10 +32,10 @@ class DNSWatch:
         self.masters = self.dnso.get_masters()
         self.slaves = self.dnso.get_slaves(self.masters)
 
-        self.dnso.update_host(self.masters["private"][0], self.fqdn, self.private_ip)
+        self.dnso.update_host(self.masters["private"][0], self.fqdn, self.private_ip, ptr=True)
         self.dnso.update_host(self.masters["public"][0], self.fqdn, self.public_ip)
 
-        self._setup_resolver(self.slaves["private"])
+        self._setup_resolver(self.slaves["private"], [self.config["nsupdate"]["zone"]])
 
     def watch(self):
         pass
@@ -57,8 +57,12 @@ class DNSWatch:
         self.logger.debug("My cloud provider is: {}.".format(provider))
         return provider
 
-    def _setup_resolver(self, servers):
-        pass
+    def _setup_resolver(self, servers, domain):
+	self.logger.debug("Configuring local resolver with: NS={}; domain={}.".format(servers, domain))
+	dhcl = DHClient()
+	#dhcl.renew_lease()
+	dhcl.set_nameserver(servers)
+	dhcl.set_search(domain)
 
 ##############################################################################
 def main():

@@ -3,3 +3,4 @@
  # requirements:
  # yaml
  # dnspython
+ # psutil

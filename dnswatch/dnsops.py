@@ -65,28 +65,38 @@ class DNSOps:
         self.logger.debug("Slaves: {}.".format(slaves))
         return slaves
 
-    def add_host(self, dnsserver, host, ip, ptr=True):
+    def add_host(self, dnsserver, host, ip, ptr=False):
         result = self._operate_record("add", dnsserver, host, "A", ip)
         if ptr:
             ptr_result = self.add_ptr(dnsserver, host, ip)
-        return result + ptr_result
+            return result + ptr_result
+        return result
 
-    def delete_host(self, dnsserver, host, ip, ptr=True):
-        return self._operate_record("delete", dnsserver, host, "A", ip)
+    def delete_host(self, dnsserver, host, ip, ptr=False):
+        result = self._operate_record("delete", dnsserver, host, "A", ip)
+        if ptr:
+            ptr_result = self.delete_ptr(dnsserver, host, ip)
+            return result + ptr_result
+        return result
 
-    def update_host(self, dnsserver, host, ip, ptr=True):
+    def update_host(self, dnsserver, host, ip, ptr=False):
         result = self._operate_record("replace", dnsserver, host, "A", ip)
         if ptr:
             ptr_result = self.update_ptr(dnsserver, host, ip)
-        return result + ptr_result
+            return result + ptr_result
+        return result
 
     def add_ptr(self, dnsserver, host, ip):
         ptr_record = dns.reversename.from_address(ip)
-        return self._operate_record("add", dnsserver, host, "PTR", ptr_record)
+        return self._operate_record("add", dnsserver, ptr_record, "PTR", host + ".")
+
+    def delete_ptr(self, dnsserver, host, ip):
+        ptr_record = dns.reversename.from_address(ip)
+        return self._operate_record("delete", dnsserver, ptr_record, "PTR", host + ".")
 
     def update_ptr(self, dnsserver, host, ip):
         ptr_record = dns.reversename.from_address(ip)
-        return self._operate_record("replace", dnsserver, ptr_record, "PTR", host)
+        return self._operate_record("replace", dnsserver, ptr_record, "PTR", host + ".")
 
     def _operate_record(self, action, dnsserver, rdname, rdtype, data):
         if not action in ["add", "delete", "replace"]:
@@ -106,8 +116,7 @@ class DNSOps:
 
         # Adjusting variables
         if rdtype == "PTR":
-            origin = dns.resolver.zone_for_name(rdname)
-            rdname = rdname.relativize(origin)
+            rdname, origin = str(rdname).split(".", 1)
         else:
             origin = dns.name.from_text(self.config["zone"])
             rdname = dns.name.from_text(rdname) - origin
@@ -127,7 +136,9 @@ class DNSOps:
             keyring=self.keyring, 
             keyalgorithm=self.key_algorithm)  
         eval('update.{}(rdname, *args)'.format(action))
-        dns.query.tcp(update, dnsserver, timeout=self.config["timeout"])
+        result = dns.query.tcp(update, dnsserver, timeout=self.config["timeout"])
+
+#        self.logger.debug(result)
 
         self.logger.debug("Done {} of '{}':'{}.{}'.".format(action, rdtype, rdname, origin))
         return True
