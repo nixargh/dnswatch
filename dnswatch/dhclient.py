@@ -1,9 +1,11 @@
 import psutil
 import re
 import os
+import time
 
 from log import Log
-from subprocess import check_call
+from subprocess import check_call, STDOUT
+from shutil import copyfile
 
 class DHClient:
 
@@ -44,11 +46,13 @@ class DHClient:
         self.logger.debug("Releasing DHCP lease.")
         args = list(self.args)
         args.append("-r")
-        check_call(args)  
+        FNULL = open(os.devnull, 'w')
+        check_call(args, stdout=FNULL, stderr=STDOUT)
 
     def _request_lease(self):
         self.logger.debug("Requesting DHCP lease.")
-        check_call(self.args)
+        FNULL = open(os.devnull, 'w')
+        check_call(self.args, stdout=FNULL, stderr=STDOUT)
 
     def _set_option(self, otype, option, value):
         if not otype in ["append", "prepend", "supersede"]:
@@ -56,17 +60,35 @@ class DHClient:
             self.logger.error(msg + ".")
             raise Exception(msg)
 
+        new_line = "{} {} {};".format(otype, option, value)
+        new_config = list()
+        option_exist = False
+        write_config = False
+
         config_file = self._get_config_file()
         config = self._read_config(config_file)
         for line in config:
             if re.match("^{}\s+{}\s+.*;$".format(otype, option), line):
+                option_exist = True
                 self.logger.debug("Option '{}' exist, checking value.".format(option))
                 if re.match("^{}\s+{}\s+{};$".format(otype, option, value), line):
                     self.logger.debug("Value '{}' is the same, skipping.".format(value))
+                    new_config.append(line)
                 else:
-                    self.logger.debug("Value '{}' differ, updating.".format(value))
-                return True
-        return False
+                    self.logger.debug("Values differ, updating to '{}'.".format(value))
+                    write_config = True
+                    new_config.append(new_line)
+                    continue
+            new_config.append(line)
+
+        if not option_exist:
+            write_config = True
+            new_config.append(new_line)
+
+        if write_config:
+            return self._write_config(new_config, config_file)
+        else:
+            return True
 
     def _get_config_file(self):
         for config_file in self.config_files:
@@ -88,3 +110,17 @@ class DHClient:
                         config.append(line)
                         full_line = ""
         return set(config)
+
+    def _write_config(self, config, config_file):
+        self._backup_config(config_file)
+        self.logger.debug("Writing new config.")
+        with open(config_file, "w") as cf:
+            for line in config:
+                cf.write("{}\n".format(line))
+        return True
+
+    def _backup_config(self, config_file):
+        backup_file = "{}.bak-{}".format(config_file, time.time())
+        self.logger.debug("Doing backup of {} to {}.".format(config_file, backup_file))
+        copyfile(config_file, backup_file)
+        return True

@@ -58,14 +58,18 @@ class DNSWatch:
         return provider
 
     def _setup_resolver(self, servers, domain):
-	self.logger.debug("Configuring local resolver with: NS={}; domain={}.".format(servers, domain))
-	dhcl = DHClient()
-	#dhcl.renew_lease()
-	dhcl.set_nameserver(servers)
-	dhcl.set_search(domain)
+        self.logger.debug("Configuring local resolver with: NS={}; domain={}.".format(servers, domain))
+        dhcl = DHClient()
+        dhcl.set_nameserver(servers)
+        dhcl.set_search(domain)
+        dhcl.renew_lease()
 
 ##############################################################################
 def main():
+    if len(sys.argv) < 2:
+        print("Configuration file not specified.\n\tusage: dnswatch config.yaml")
+        sys.exit(2)
+
     logger = Log.get_logger("DNSWatch")
     logger.debug("Starting.")
 
