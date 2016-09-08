@@ -1,3 +1,4 @@
+---
 nsupdate:
   zone: zone_name
   update_key:

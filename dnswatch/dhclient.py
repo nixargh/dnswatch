@@ -2,15 +2,15 @@ import psutil
 import re
 import os
 import time
+import logging
 
-from log import Log
 from subprocess import check_call, STDOUT
 from shutil import copyfile
 
 class DHClient:
 
     def __init__(self):
-        self.logger = Log.get_logger(self.__class__.__name__)
+        self.logger = logging.getLogger("DNSWatch.DHClient")
         self.args = self._collect_args()
         self.config_files = ["/etc/dhcp/dhclient.conf"]
 

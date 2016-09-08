@@ -1,14 +1,14 @@
 import socket
 import fcntl
 import struct
+import logging
 
-from log import Log
 from gce import GCE
 from aws import AWS
 
 class InstanceInfo:
     def __init__(self, provider="other"):
-        self.logger = Log.get_logger(self.__class__.__name__)
+        self.logger = logging.getLogger("DNSWatch.InstanceInfo")
         self.provider = provider
         if provider == "gce":
             self.cloud = GCE()

@@ -1,12 +1,12 @@
 import requests
+import logging
 
-from log import Log
 from cloud import Cloud
 
 class GCE:
 
     def __init__(self):
-        self.logger = Log.get_logger(self.__class__.__name__)
+        self.logger = logging.getLogger("DNSWatch.GCE")
         metadata = { 
                 "url": "http://169.254.169.254/computeMetadata/v1/instance",
                 "headers": { "Metadata-Flavor": "Google" }

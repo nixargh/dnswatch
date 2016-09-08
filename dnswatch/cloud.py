@@ -1,11 +1,10 @@
 import requests
-
-from log import Log
+import logging
 
 class Cloud:
 
     def __init__(self, metadata):
-        self.logger = Log.get_logger(self.__class__.__name__)
+        self.logger = logging.getLogger("DNSWatch.Cloud")
         self.metadata = metadata
 
     def is_inside(self):

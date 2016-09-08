@@ -1,13 +1,12 @@
 import dns.resolver
 import dns.tsigkeyring
 import dns.update
-
-from log import Log
+import logging
 
 class DNSOps:
 
     def __init__(self, config):
-        self.logger = Log.get_logger(self.__class__.__name__)
+        self.logger = logging.getLogger("DNSWatch.DNSOps")
         self.config = config
         self.keyring = None
         self.key_algorithm = None
