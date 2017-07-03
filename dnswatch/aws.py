@@ -15,9 +15,12 @@ class AWS:
 
     def is_inside(self):
         return self.cloud.is_inside()
+<<<<<<< HEAD
 
     def get_private_ip(self):
         return self.cloud.get_data("local-ipv4").text
 
     def get_public_ip(self):
         return self.cloud.get_data("public-ipv4").text
+=======
+>>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9

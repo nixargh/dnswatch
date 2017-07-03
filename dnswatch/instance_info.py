@@ -18,6 +18,7 @@ class InstanceInfo:
     def get_fqdn(self):
         return socket.getfqdn()
 
+<<<<<<< HEAD
     def get_hostname(self):
         """Return only name before first dot."""
         hostname = socket.gethostname()
@@ -30,6 +31,8 @@ class InstanceInfo:
         else:
             return None
 
+=======
+>>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
     def get_private_ip(self):
         """
         Return one IP address belongs to network interfaces used for
@@ -38,7 +41,14 @@ class InstanceInfo:
         self.logger.debug("Detecting private IP.")
         ip = None
 
+<<<<<<< HEAD
         if self.provider in ["aws", "gce"]:
+=======
+        if self.provider == "aws":
+            self.logger.error("AWS isn't implemeted yet.")
+            raise Exception("AWS isn't implemeted yet.")
+        elif self.provider == "gce":
+>>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
             ip = self._get_private_ip_cloud()
         else:
             ip = self._get_private_ip_other()
@@ -50,7 +60,14 @@ class InstanceInfo:
         self.logger.debug("Detecting public IP.")
         ip = None
 
+<<<<<<< HEAD
         if self.provider in ["aws", "gce"]:
+=======
+        if self.provider == "aws":
+            self.logger.error("AWS isn't implemeted yet.")
+            raise Exception("AWS isn't implemeted yet.")
+        elif self.provider == "gce":
+>>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
             ip = self._get_public_ip_cloud()
         else:
             ip = self._get_public_ip_other()

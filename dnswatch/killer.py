@@ -1,4 +1,5 @@
 import signal
+<<<<<<< HEAD
 import logging
 
 class Killer:
@@ -26,3 +27,15 @@ class Killer:
 	self.logger.debug("Signal handler called with signal: {}.".format(signum))
         self.kill_now = True
         self.cleanup = False
+=======
+
+class Killer:
+    kill_now = False
+
+    def __init__(self):
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+
+    def exit_gracefully(self,signum, frame):
+        self.kill_now = True
+>>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
