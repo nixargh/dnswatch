@@ -1,5 +1,4 @@
 ---
-<<<<<<< HEAD
 dnsupdate:
   zone: zone_name # DNS zone name for host
   provider: bind # options: bind, route53
@@ -17,13 +16,3 @@ dnsupdate:
       - bingo-bongo # Alias 2
 watch: # pause between watchers (optional)
   pause: 20 # default value is 10 seconds
-=======
-nsupdate:
-  zone: zone_name
-  update_key:
-    name: key_name
-    key: "sercret_key"
-    algorithm: key_algorithm
-  ttl: 300
-  timeout: 10
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
