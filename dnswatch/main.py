@@ -1,209 +1,138 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# dnswatch - tool to automate DNS setup
+# dnswatch - tool for automatic DNS configuration
 ##############################################################################
+import os
 import sys
 import logging
-import yaml
-import dns.resolver
-import dns.tsigkeyring
+import argparse
+import traceback
 import socket
-import fcntl
-import struct
-import re
+import time
 
+from core import DNSWatch
+from misc import Misc
+from config import Config
+from killer import Killer
+
+from __init__ import __version__
 ##############################################################################
-logger = None
-##############################################################################
-class DNSWatch:
-    def __init__(self, logger, config):
-        self.logger = logger
-        self.config = config
-        self.keyring = self._create_keyring(config["nsupdate"]["update_key"])
-        self.private_ip = self._get_private_ip()
-        self.public_ip = self._get_public_ip()
-
-    def initial_config(self):
-        self.logger.debug("Doing initial configuration.")
-        self.masters = self._get_masters(self.config["nsupdate"]["zone"])
-        self.slaves = self._get_slaves(
-            self.masters, self.config["nsupdate"]["zone"])
-
-        self._update_zone(self.masters["private"][0], self.private_ip)
-        self._update_zone(self.masters["public"][0], self.public_ip)
-
-        self._setup_resolver(self.slaves["private"])
-
-    def watch(self):
-        pass
-
-    def cleanup(self):
-        pass
-
-    def _get_private_ip(self):
-        """
-        Return one IP address belongs to network interfaces used for
-        external connections.
-        """
-        self.logger.debug("Detecting private IP.")
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        ip = None
-
-        interfaces = self._get_interfaces()
-
-        if len(interfaces) > 1:
-            self.logger.debug(
-                "More than one interface found, using external "\
-                    "connect to find proper IP.")
-            # First method        
-            s.connect(("8.8.8.8", 53))
-            ip = s.getsockname()[0]
-        else:
-            interface = interfaces[0]
-
-            # Second method        
-            ip = socket.inet_ntoa(fcntl.ioctl(
-                s.fileno(),
-                0x8915,  # SIOCGIFADDR
-                struct.pack('256s', interface))[20:24])
-
-        s.close()
-        self.logger.debug("My private IP: {}.".format(ip))
-        return ip
-
-    def _get_public_ip(self):
-        self.logger.debug("Detecting public IP.")
-        ip = None
-
-        try:
-            name = socket.gethostbyaddr(self.private_ip)[0]
-            ip = self._query(name, "A", ["8.8.8.8", "8.8.4.4"])[0]
-            #ip = self._query(name, "A", ["127.0.1.1"])[0]
-        except:
-            self.logger.error("Failed to find public IP.")
-
-        self.logger.debug("My public IP: {}.".format(ip))
-        return ip
-
-    def _get_interfaces(self):
-        self.logger.debug("Getting network interfaces.")
-        interfaces = list()
-        with open("/proc/net/dev", "r") as dev_file:
-            devices = dev_file.readlines()
-            for dev in devices[2:]:
-                dev_name = dev.split(":")[0].strip()
-                if dev_name != "lo":
-                    interfaces.append(dev_name)
-        self.logger.debug("Interfaces: {}.".format(interfaces))
-        return interfaces
-
-    def _create_keyring(self, update_key):
-        name = update_key["name"]
-        key = update_key["key"]
-        self.logger.debug(
-            "Creating keyring for domain '{}' with key '{}'.".format(
-                name, key))
-        return dns.tsigkeyring.from_text({name: key}) 
-
-    def _get_masters(self, zone):
-        self.logger.debug("Getting DNS masters for zone {}.".format(zone))
-
-        masters = dict()
-        for mtype in ["private", "public"]:
-            try:
-                record = "dns-master-{}.{}".format(mtype, zone)
-                self.logger.debug("Looking for TXT record {}.".format(record))
-                answer = self._query(record, "TXT")
-            except dns.resolver.NXDOMAIN:
-                upper_zone = zone.split(".", 1)[1]
-                record = "dns-master-{}.{}".format(mtype, upper_zone)
-                self.logger.debug(
-                    "Failed. Checking upper zone {}.".format(upper_zone))
-                answer = self._query(record, "TXT")
-
-            self.logger.debug("Got {} masters: {}.".format(mtype, answer))
-            masters[mtype] = answer
-
-        self.logger.debug("Masters: {}.".format(masters))
-        return masters
-
-    def _get_slaves(self, masters, zone):
-        self.logger.debug("Getting DNS slaves for zone {}.".format(zone))
-
-        slaves = dict()
-        for stype in masters.keys():
-            record = "dns-slave.{}".format(zone)
-            self.logger.debug("Looking for TXT record {} at {}.".format(
-                record, masters[stype]))
-            answer = self._query(
-                "dns-slave.{}".format(zone), "TXT", masters[stype])
-            slaves[stype] = answer
-
-        self.logger.debug("Slaves: {}.".format(slaves))
-        return slaves
-
-    def _query(self, name, rtype="A", nameservers=None):
-        result = list()
-        resolver = dns.resolver.Resolver()
-        if nameservers:
-            resolver.nameservers = nameservers
-
-        answers = list()
-        try:
-            answers = resolver.query(name, rtype)
-        except dns.exception.Timeout:
-            self.logger.error(
-                "Timeout reached while getting {} record {} from {}.".format(
-                    rtype, name, nameservers))
-
-        for answer in answers:
-            if rtype == "TXT":
-                for line in answer.strings:
-                    line = line.replace('"', "")
-                    result.extend(line.split(","))
-            else:
-                result.append(answer.address)
-        return result
-
-    def _update_zone(self, server, ip):
-        pass
-
-    def _setup_resolver(self, servers):
-        pass
-
-##############################################################################
-def configure_logger(name):
-    global logger
+def get_logger(name, log_level="DEBUG", log_file=None):
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    handler = logging.StreamHandler(sys.stdout)
+    logger.setLevel(eval("logging.{}".format(log_level.upper())))
+    if log_file:
+        log_dir = os.path.dirname(log_file)
+        if not os.path.isdir(log_dir):
+            os.makedirs(log_dir)
+        handler = logging.FileHandler(log_file)
+    else:
+        handler = logging.StreamHandler(sys.stdout)
     formatter = logging.Formatter(
-        '%(asctime)s %(process)d %(name)-16s %(levelname)-8s %(message)s')
+        '%(asctime)s %(process)-8d %(name)-22s %(levelname)-8s %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger
 
-def parse_config(config_file):
-    logger.debug("Loading configuration from {}".format(config_file))
-    with open(config_file, "r") as f:
-        config = yaml.load(f)
+def _parse_argv():
+    parser = argparse.ArgumentParser(prog="dnswatch",
+                          description='tool for automatic DNS configuration')
 
-    logger.debug("Configuration loaded.")    
-    return config
+    parser.add_argument('-c', '--config', 
+                    metavar='FILE',
+                    required=True,
+                    help='Config file')
+    parser.add_argument('-l', '--logfile',
+                    metavar='FILE',
+                    help='Log file')
+    parser.add_argument('-L', '--loglevel', 
+                    metavar=['debug', 'info', 'warning', 'error', 'critical'], 
+                    default='info',
+                    help='Log level')
+    parser.add_argument('-t', '--trace',
+                    action='store_true',
+                    help='Show python traceback')
+    parser.add_argument('-v', '--version',
+                    action='version',
+                    version="%s %s" % (parser.prog, __version__),
+                    help='Show version')
+ 
+    return parser.parse_args()
 
+def get_lock(name, timeout=60):
+    # Without holding a reference to our socket somewhere it gets garbage
+    # collected when the function exits
+    get_lock._lock_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+
+    try:
+        get_lock._lock_socket.bind('\0' + name)
+        return True
+    except:
+        time.sleep(timeout)
+        try:
+            get_lock._lock_socket.bind('\0' + name)
+            return True
+        except socket.error:
+            return False
+
+###############################################################################
 def main():
-    logger = configure_logger("DNSWatch")
-    logger.debug("Starting.")
+    killer = Killer()
 
-    config = parse_config(sys.argv[1])
+    args = _parse_argv()
 
-    dw = DNSWatch(logger, config)
-    dw.initial_config()
-    dw.watch()
-    dw.cleanup()
+    logger = get_logger("DNSWatch", log_level=args.loglevel, log_file=args.logfile)
+    logger.info("Starting dnswatch v.{}.".format(__version__))
 
-    logger.debug("Finished successfully.")
-    sys.exit(0)
+    misc = Misc(logger)
+
+    try: 
+        exit_code = 2
+
+        if not get_lock("dnswatch", timeout=5):
+            misc.die("Lock exists")
+
+        c = Config()
+        action = None
+        while True:
+            config = c.read(args.config)
+            dw = DNSWatch(config)
+
+            if action == 'reload':
+                dw.reload_config()
+            else:
+                dw.initial_config()
+            
+            try: 
+                action = dw.watch(pause=config["watch"]["pause"])
+            except: 
+                action = dw.watch()
+
+            if action == "kill":
+                # Do DNS cleanup and exit loop
+                dw.cleanup()
+                break
+            elif action == "softkill":
+                # Exit loop without DNS cleanup
+                break
+            elif action == "reload":
+                # Do nothing
+                pass
+            else:
+                misc.die("Unknown action requested: {}".format(action))
+
+        logger.info("Finished successfully.")
+        exit_code = 0
+    except SystemExit:
+        exit_code = sys.exc_info()[1]
+    except:
+        logger.error("Exiting with errors.")
+        if args.trace:
+            print(sys.exc_info())
+            trace = sys.exc_info()[2]
+            traceback.print_tb(trace)
+            exit_code = 1
+    finally:
+        sys.exit(exit_code)
 
 if __name__ == '__main__':
     main()

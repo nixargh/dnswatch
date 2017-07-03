@@ -1,7 +1,18 @@
-nsupdate:
-  zone: zone_name
-  update_key:
-    name: key_name
-    key: "sercret_key"
-    algorithm: key_algorithm
-  ttl: 300
+---
+dnsupdate:
+  zone: zone_name # DNS zone name for host
+  provider: bind # options: bind, route53
+  update_key: # TSIG key for bind; AWS key for route53
+    name: key_id # TSIG: key name; AWS: key_id
+    key: "key_secret" # TSIG: key; AWS: key_secret
+    algorithm: key_algorithm # TSIG: key algorithm; AWS: ignored
+  ttl: 300 # DNS record TTL (optional, 300 by default)
+  timeout: 10 # DNS query timeout (optional, 10 by default)
+  alias: # keys are reqular expressions (optional)
+    'admin.project.domain': # Aliases below will be applied to hosts matched regex
+      - admin # Alias 1
+    '^test1\..+': # Aliases below will be applied to hosts matched regex
+      - alias-test # Alias 1
+      - bingo-bongo # Alias 2
+watch: # pause between watchers (optional)
+  pause: 20 # default value is 10 seconds
