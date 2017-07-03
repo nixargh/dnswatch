@@ -6,17 +6,13 @@ import logging
 
 from subprocess import check_call, STDOUT
 from shutil import copyfile
-<<<<<<< HEAD
 from misc import Misc
 
-=======
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
 
 class DHClient:
 
     def __init__(self):
         self.logger = logging.getLogger("DNSWatch.DHClient")
-<<<<<<< HEAD
         self.misc = Misc(self.logger)
         self.args = self._collect_args()
         self.config_files = ["/etc/dhcp/dhclient.conf"]
@@ -44,40 +40,19 @@ class DHClient:
                 " ".join(default_cmdline)))
         self._request_lease(default_cmdline)
         return default_cmdline
-=======
-        self.args = self._collect_args()
-        self.config_files = ["/etc/dhcp/dhclient.conf"]
-
-    def _collect_args(self):
-        self.logger.debug("Looking for dhclient process arguments.")
-        for proc in psutil.process_iter():
-            if re.match("^dhclient\d*$", proc.name):
-                return proc.cmdline
-
-        msg = "dhclient process not found"
-        self.logger.error(msg + ".")
-        raise Exception(msg)
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
 
     def set_nameserver(self, ns):
         self.logger.debug("Setting nameserver: {}.".format(ns))
         if not self._set_option("supersede", "domain-name-servers", ", ".join(ns)):
-<<<<<<< HEAD
             self.misc.die("Failed to set nameserver for dhclient")
 
     def get_nameserver(self):
         self.logger.debug("Getting nameserver from dhclient config.")
         return self._get_option("domain-name-servers", otype="supersede")[2]
-=======
-            msg = "Failed to set nameserver for dhclient"
-            self.logger.error(msg + ".")
-            raise Exception(msg)
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
 
     def set_search(self, domain):
         self.logger.debug("Setting search domain: {}.".format(domain))
         if not self._set_option("prepend", "domain-name", '"{} "'.format(" ".join(domain))):
-<<<<<<< HEAD
             self.misc.die("Failed to set search domain for dhclient")
 
     def renew_lease(self):
@@ -107,33 +82,6 @@ class DHClient:
     def _set_option(self, otype, option, value):
         if not otype in ["append", "prepend", "supersede"]:
             self.misc.die("Unknown dhclient option type: {}".format(otype))
-=======
-            msg = "Failed to set search domain for dhclient"
-            self.logger.error(msg + ".")
-            raise Exception(msg)
-
-    def renew_lease(self):
-        self._release_lease()
-        self._request_lease()
-
-    def _release_lease(self):
-        self.logger.debug("Releasing DHCP lease.")
-        args = list(self.args)
-        args.append("-r")
-        FNULL = open(os.devnull, 'w')
-        check_call(args, stdout=FNULL, stderr=STDOUT)
-
-    def _request_lease(self):
-        self.logger.debug("Requesting DHCP lease.")
-        FNULL = open(os.devnull, 'w')
-        check_call(self.args, stdout=FNULL, stderr=STDOUT)
-
-    def _set_option(self, otype, option, value):
-        if not otype in ["append", "prepend", "supersede"]:
-            msg = "Unknown dhclient option type: {}".format(otype)
-            self.logger.error(msg + ".")
-            raise Exception(msg)
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
 
         new_line = "{} {} {};".format(otype, option, value)
         new_config = list()
@@ -161,7 +109,6 @@ class DHClient:
             new_config.append(new_line)
 
         if write_config:
-<<<<<<< HEAD
             if self._write_config(new_config, config_file):
                 self.config_updated = True
                 return True
@@ -185,12 +132,6 @@ class DHClient:
                 result = [otype, option, value]
         return result
 
-=======
-            return self._write_config(new_config, config_file)
-        else:
-            return True
-
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
     def _get_config_file(self):
         for config_file in self.config_files:
             if os.path.isfile(config_file):

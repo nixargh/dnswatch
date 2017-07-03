@@ -1,14 +1,10 @@
-<<<<<<< HEAD
 import os
-=======
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
 import yaml
 import logging
 
 class Config:
     def __init__(self):
         self.logger = logging.getLogger("DNSWatch.Config")
-<<<<<<< HEAD
         self.dnsprovider = None
         self.dnszone = None
 
@@ -54,13 +50,5 @@ class Config:
         else:
             self.dnszone = config["dnsupdate"]["zone"]
 
-=======
-
-    def read(self, config_file):
-        self.logger.debug("Loading configuration from {}".format(config_file))
-        with open(config_file, "r") as f:
-            config = yaml.load(f)
-
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
         self.logger.debug("Configuration loaded.")    
         return config

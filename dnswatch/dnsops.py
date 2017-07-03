@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import re
 import dns.resolver
 import dns.tsigkeyring
@@ -9,21 +8,11 @@ import logging
 from misc import Misc
 
 
-=======
-import dns.resolver
-import dns.tsigkeyring
-import dns.update
-import logging
-
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
 class DNSOps:
 
     def __init__(self, config):
         self.logger = logging.getLogger("DNSWatch.DNSOps")
-<<<<<<< HEAD
         self.misc = Misc(self.logger)
-=======
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
         self.config = config
         self.keyring = None
         self.key_algorithm = None
@@ -35,13 +24,8 @@ class DNSOps:
         algorithm = update_key["algorithm"]
 
         self.logger.debug(
-<<<<<<< HEAD
             "Creating keyring for domain '{}' with key '{}...'.".format(
                 name, key[:10]))
-=======
-            "Creating keyring for domain '{}' with key '{}'.".format(
-                name, key))
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
         self.keyring = dns.tsigkeyring.from_text({name: key}) 
 
         self.logger.debug("Setting key algorithm to '{}'.".format(algorithm))
@@ -87,7 +71,6 @@ class DNSOps:
         return slaves
 
     def add_host(self, dnsserver, host, ip, ptr=False):
-<<<<<<< HEAD
         self._operate_record("add", dnsserver, host, "A", ip)
         if ptr:
             self.add_ptr(dnsserver, host, ip)
@@ -130,53 +113,6 @@ class DNSOps:
             self.misc.die("Keyring for DNS action not found")
         if not self.key_algorithm:
             self.misc.die("Key algorithm for DNS action not specified")
-=======
-        result = self._operate_record("add", dnsserver, host, "A", ip)
-        if ptr:
-            ptr_result = self.add_ptr(dnsserver, host, ip)
-            return result + ptr_result
-        return result
-
-    def delete_host(self, dnsserver, host, ip, ptr=False):
-        result = self._operate_record("delete", dnsserver, host, "A", ip)
-        if ptr:
-            ptr_result = self.delete_ptr(dnsserver, host, ip)
-            return result + ptr_result
-        return result
-
-    def update_host(self, dnsserver, host, ip, ptr=False):
-        result = self._operate_record("replace", dnsserver, host, "A", ip)
-        if ptr:
-            ptr_result = self.update_ptr(dnsserver, host, ip)
-            return result + ptr_result
-        return result
-
-    def add_ptr(self, dnsserver, host, ip):
-        ptr_record = dns.reversename.from_address(ip)
-        return self._operate_record("add", dnsserver, ptr_record, "PTR", host + ".")
-
-    def delete_ptr(self, dnsserver, host, ip):
-        ptr_record = dns.reversename.from_address(ip)
-        return self._operate_record("delete", dnsserver, ptr_record, "PTR", host + ".")
-
-    def update_ptr(self, dnsserver, host, ip):
-        ptr_record = dns.reversename.from_address(ip)
-        return self._operate_record("replace", dnsserver, ptr_record, "PTR", host + ".")
-
-    def _operate_record(self, action, dnsserver, rdname, rdtype, data):
-        if not action in ["add", "delete", "replace"]:
-            msg = "{} with DNS record isn't supported"
-            self.logger.error(msg + ".")
-            raise Exception(msg)
-        if not self.keyring:
-            msg = "Keyring for DNS action not found"
-            self.logger.error(msg + ".")
-            raise Exception(msg)
-        if not self.key_algorithm:
-            msg = "Key algorithm for DNS action not specified"
-            self.logger.error(msg + ".")
-            raise Exception(msg)
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
         self.logger.debug("Doing {} of '{}':'{}' record at {} with data '{}'.".format(
             action, rdtype, rdname, dnsserver, data))
 
@@ -202,7 +138,6 @@ class DNSOps:
             keyring=self.keyring, 
             keyalgorithm=self.key_algorithm)  
         eval('update.{}(rdname, *args)'.format(action))
-<<<<<<< HEAD
 
         result = dns.query.tcp(update, dnsserver, timeout=self.config["timeout"])
 
@@ -220,14 +155,6 @@ class DNSOps:
             if match:
                 text = match.group(1)
         return [ code, text ]
-=======
-        result = dns.query.tcp(update, dnsserver, timeout=self.config["timeout"])
-
-#        self.logger.debug(result)
-
-        self.logger.debug("Done {} of '{}':'{}.{}'.".format(action, rdtype, rdname, origin))
-        return True
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
 
     def _query(self, name, rtype="A", nameservers=None):
         result = list()
@@ -251,7 +178,6 @@ class DNSOps:
             else:
                 result.append(answer.address)
         return result
-<<<<<<< HEAD
 
     def _ensure_fqdn(self, name):
         """Make a proper FQDN from name"""
@@ -259,5 +185,3 @@ class DNSOps:
             return "%s." % name
         else:
             return name
-=======
->>>>>>> 59ed5eec90df781060c3439a5ca2940dcdb5fdb9
